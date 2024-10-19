@@ -1,0 +1,411 @@
+---------------------------------------------------------------------------------
+-- DE10_lite Top level for Popeye by Dar (darfpga@aol.fr) (26/12/2019)
+-- http://darfpga.blogspot.fr
+---------------------------------------------------------------------------------
+--
+-- release rev 03 : no change but hardware description
+--  (27/01/2020)
+--
+-- release rev 02 : clean MNI disable/enable, add hardware description
+--  (25/01/2020)
+--
+-- release rev 01 : added protection algorithm (straight forward from MAME)
+--  (01/01/2020)  : tested ok for Popeye rev D level 1 at least...
+--
+-- release rev 00 : initial release
+--  (26/12/2019)
+--
+---------------------------------------------------------------------------------
+-- Educational use only
+-- Do not redistribute synthetized file with roms
+-- Do not redistribute roms whatever the form
+-- Use at your own risk
+---------------------------------------------------------------------------------
+-- Use popeye_de10_lite.sdc to compile (Timequest constraints)
+-- /!\
+-- Don't forget to set device configuration mode with memory initialization 
+--  (Assignments/Device/Pin options/Configuration mode)
+---------------------------------------------------------------------------------
+--
+-- Main features :
+--  PS2 keyboard input @gpio pins 35/34 (beware voltage translation/protection) 
+--  Audio pwm output   @gpio pins 1/3 (beware voltage translation/protection) 
+--
+--  Video         : VGA 31kHz/60Hz progressive and TV 15kHz interlaced
+--  Cocktail mode : NO
+--  Sound         : OK
+-- 
+-- For hardware schematic see my other project : NES
+--
+-- Uses 1 pll 40MHz from 50MHz to make 20MHz and 8Mhz 
+--
+-- Board key :
+--   0 : reset game
+--
+-- Keyboard players inputs :
+--
+--   F1 : Add coin
+--   F2 : Start 1 player
+--   F3 : Start 2 players
+
+--   F7 : Service mode
+--   F8 : 15kHz interlaced / 31 kHz progressive
+
+--   SPACE  : punch
+
+--   RIGHT arrow : move right
+--   LEFT  arrow : move left
+--   UP    arrow : up stairs
+--   DOWN  arrow : down stairs
+--
+-- Other details : see popeye.vhd
+-- For USB inputs and SGT5000 audio output see my other project: xevious_de10_lite
+---------------------------------------------------------------------------------
++----------------------------------------------------------------------------------+
+; Fitter Summary                                                                   ;
++------------------------------------+---------------------------------------------+
+; Fitter Status                      ; Successful - Sat Jan 25 17:21:55 2020       ;
+; Quartus Prime Version              ; 18.1.0 Build 625 09/12/2018 SJ Lite Edition ;
+; Revision Name                      ; popeye_de10_lite                            ;
+; Top-level Entity Name              ; popeye_de10_lite                            ;
+; Family                             ; MAX 10                                      ;
+; Device                             ; 10M50DAF484C6GES                            ;
+; Timing Models                      ; Preliminary                                 ;
+; Total logic elements               ; 3,368 / 49,760 ( 7 % )                      ;
+;     Total combinational functions  ; 3,258 / 49,760 ( 7 % )                      ;
+;     Dedicated logic registers      ; 871 / 49,760 ( 2 % )                        ;
+; Total registers                    ; 871                                         ;
+; Total pins                         ; 121 / 360 ( 34 % )                          ;
+; Total virtual pins                 ; 0                                           ;
+; Total memory bits                  ; 613,888 / 1,677,312 ( 37 % )                ;
+; Embedded Multiplier 9-bit elements ; 0 / 288 ( 0 % )                             ;
+; Total PLLs                         ; 1 / 4 ( 25 % )                              ;
+; UFM blocks                         ; 0 / 1 ( 0 % )                               ;
+; ADC blocks                         ; 0 / 2 ( 0 % )                               ;
++------------------------------------+---------------------------------------------+
+
+---------------------------------------------------------------------------------
+-- Popeye by Dar (darfpga@aol.fr) (26/12/2019)
+-- http://darfpga.blogspot.fr
+---------------------------------------------------------------------------------
+--
+-- release rev 03 : no change but hardware description
+--  (27/01/2020)
+--
+-- release rev 02 : clean MNI disable/enable, add hardware description
+--  (25/01/2020)
+--
+-- release rev 01 : added protection algorithm (straight forward from MAME)
+--  (01/01/2020)  : tested ok for Popeye rev D level 1 at least...
+--
+-- release rev 00 : initial release
+--  (26/12/2019)
+--
+---------------------------------------------------------------------------------
+-- gen_ram.vhd & io_ps2_keyboard
+-------------------------------- 
+-- Copyright 2005-2008 by Peter Wendrich (pwsoft@syntiac.com)
+-- http://www.syntiac.com/fpga64.html
+---------------------------------------------------------------------------------
+-- T80/T80se - Version : 304
+-----------------------------
+-- Z80 compatible microprocessor core
+-- Copyright (c) 2001-2002 Daniel Wallner (jesus@opencores.org)
+---------------------------------------------------------------------------------
+-- YM2149 (AY-3-8910)
+-- Copyright (c) MikeJ - Jan 2005
+---------------------------------------------------------------------------------
+-- Educational use only
+-- Do not redistribute synthetized file with roms
+-- Do not redistribute roms whatever the form
+-- Use at your own risk
+---------------------------------------------------------------------------------
+--  Features :
+--   Video        : VGA 31kHz/60Hz progressive and TV 15kHz interlaced
+--   Coctail mode : NO
+--   Sound        : OK
+--
+--  Use with MAME roms from popeye.zip & popeyeu.zip
+--
+--  Use make_popeye_proms.bat to build vhd file from binaries
+--  (CRC list included)
+--
+---------------------------------------------------------------------------------
+--  Popeye Hardware caracteristics from schematics TPP2:
+--
+--  2 digits numbers such as '(8P)' refers to TPP2 schematics. I miss to mention
+--  which board it refers to (cpu or video). I hope it will not be too much
+--  misleading, Take care !  
+--
+--   Video quartz is 20.16MHz.
+--
+--   Display is 512x448 pixels (video 640 pixels x 256 interlaced lines @ 10.08MHz).
+--
+--    Original interlaced timings :
+--      640/10.08e6  = 63.49us per line  (15.750kHz).
+--      63.49*256 = 16.254ms per frame (61.52Hz).
+--
+--    VHDL 60Hz Adapted interlaced timings (263 lines instead of 256):
+--      640/10.08e6  = 63.49us per line  (15.750kHz).
+--      63.49*263 = 16.70ms per frame (59.89Hz).
+-- 
+--    VHDL 60Hz Adapted progressive timings (526 lines instead of 512):
+--      640/20.16e6  = 31.75us per line  (31.50kHz).
+--      31.75*526 = 16.70ms per frame (59.89Hz).
+--   
+--    One char tile map 32x28 of 8x8 dots (1 char dot is 2 pixels x 2 lines).
+--      1Kx8bits text ram (5P/5R).
+--      1kx4bits color ram (5S).
+--      4Kx8bits graphics rom 1bits/dot (5N):
+--        addr = '1' + 8b code + 3b line (only 2K used).
+--        data = 8 pixels x 1bit color.
+--      32x8bits rom color palette (3A):
+--        addr = 1bit duplicated + 4bits individual char (only 16 colors used).
+--        data = 8bits => 3red 3green 2blue.
+--
+--    One backgroud bitmap 64x128 blocs of 4x2 dots (1 background dot is 2 pixels x 2 lines).
+--     One bloc has a single color and is 8 pixels x 4 lines.
+--     Low nibble of memory holds colors for the first 64x64 blocs => upper half screen.
+--     High nibble of memory holds colors for the last 64x64 blocs => lower half screen.
+--     Total playground is 512 pixels x 512 lines.
+
+--     4Kx8bits bitmap ram - addressed by cpu/video as 8Kx4bits - (8P/8S):
+--        addr = 7bits #Y bloc position + 6bits #X bloc position.
+--        data = 4bits individual bloc color.
+--      1bit global background color (whole frame) comes from sprite buffer ram.
+--      32x8bits rom color palette (4A):
+--        addr = 1bit global + 4bits individual bloc.
+--        data = 8bits => 3red 3green 2blue.
+--
+--    Sprites are 16 pixels x 16 lines objects (1 object dot is 1 pixels x 1 lines):
+--      There are 512 different graphics (9bits code).
+--      4x8Kx8bits graphics rom addressed as 8Kx32bits (1K/1J/1F/1E):
+--        addr = 9bits code + 4bits line.
+--        data = 16 pixels x 2bits color.
+--      3bits object color comes from each individual sprite data.
+--      3bits global object color (whole frame) comes from sprite buffer ram.
+--      2x256x4bits rom color palette - addressed as 256x8bits - (5B/5A):
+--        addr = 3bits global + 3bits individual object + 2bits graphics data.
+--        data = 8bits => 3red 3green 2blue.
+--
+--      Sprites have 1x1 pixel/line resolution but sprite H/V position have 2x2
+--      pixels/lines resolution
+--
+--    Program rom is 4x8Kx8bits addressed as 32Kx8bits (7A/7B/7C/7E):
+--      addresses are bits swapped and xored w.r.t cpu addresses (6E/6F/6H).
+--      data      are bits swapped w.r.t cpu data.
+--
+--    Working ram is 2Kx8bits (7H)
+--      working ram is addressed by cpu and by sprite data dma.
+--
+--    Char machine is quite straight forward.
+--    Cpu has always priority access to text and color ram over video scanner.
+--    Cpu address bits are unswapped at address mux level (6P/6R/6S).
+--    Cpu address bits may be unxored at PLA level (5U).
+--
+--    Background machine has X/Y scroll (shift) mechanism:
+--      X (horizontal) scrolling uses a counter (7N/7M) which initial value is
+--      loaded for each line from sprite buffer ram.
+--      Y (vertical) scrolling uses a line adder (3S/3R) and a register (8N)
+--      which value is loaded for each line from sprite buffer ram.
+--
+--    Background machine has 8bits/4bits mux/dmux mecanism:
+--      cpu_addr(12) allow to select writing to low nibble or high nibble of 
+--      background bitmap thru muxers (8T/7T/7U) and register (8U). high nibble
+--      is written back unchanged when writing low nibble and vice-versa with low
+--      and high nibbles.
+--      MSB of scrolled line count is used to select low or high nibble to be
+--      displayed.
+--
+--    Cpu has always priority access to background bitmap ram over video scanner.
+--    Cpu address bits are unswapped at address mux level (7P/7R/7S).
+--    Cpu address bits may be unxored at PLA level (5U).
+--
+--    Sprite mecanism is based on 4 main steps:
+--      - Sprite data are first written/read by cpu to/from working ram (7H).
+--
+--      - Once per frame sprite data are transfered from working ram to sprite
+--        buffer ram (2T/1T/2S/1S/2R/1R/2U/1U).
+--
+--      - Once per line sprite data are filtered and transfered to sprite line
+--        buffer (1M/3M and 1P/3P).
+--
+--      - Once per line sprite line is read to immediatly feed sprite graphics
+--        roms.
+--
+--    Cpu has always access to working ram except when address and data buses are
+--    requested by BUSRQ signal.
+--
+--    Sprite data tranfer from working ram to sprite buffer ram:
+--      On VBlank signal event cpu address and data buses are requested (1L) and 
+--      sprite dma 11bits counter (1F/2F/2E) drives address bus directly to sprite
+--      buffer ram address and thru PLA (3E/4E) to working ram address. Data bus
+--      is then driven by working ram data to feed sprite buffer ram data.
+--      Bits 8 and 9 of dma counter are used to demux sprite buffer ram CS while
+--      they are used to feed bits 0 and 1 of working ram address.
+--      
+--      So 8bits data from working ram address range x000-x3FF are transfered to 
+--      32bits data of sprite buffer ram address range x00-xFF. 4 consecutives
+--      bytes from working ram feed 1 dword of sprite buffer ram.
+-- 
+--      Except for address 0, each dword of sprite buffer ram holds 1 sprite data
+--      (X pos, Y pos, code, color, attributs). From that point of view there 
+--      could be 255 sprites to be displayed (see below).
+--
+--      Address 0 of sprite buffer ram contains background data (X scroll,
+--      Y scroll, global color) and sprite data (global color).
+--      In VHDL code these data are not taken from sprite buffer ram but latched
+--      directly when cpu writes them to working ram. Thus tranfer will not start
+--      at address 0 but at address 4.
+--
+--      Bit 10 of dma counter is used to release BUSRQ signal (1L).
+--
+--      In VHDL code buses are not resquested at all to cpu. Instead, working ram
+--      address and data buses are muxed at hcnt(0) rate between cpu and dma.
+--
+--    Sprite data filtering and transfer from sprite buffer ram to line buffers:
+--      For each scanline sprite buffer ram is fully(*) read, and data of sprites
+--      which have graphics to be displayed on next line are written to sprite
+--      line buffer. Reading address is managed by the same counter as the one
+--      used for dma transfer (1F/2F/2E). But here this counter only drives 
+--      sprite buffer ram addresses. Cpu address and data buses are not used for
+--      that task and managed freely by cpu itself.
+--
+--      While reading sprite buffer ram sprite V (Y) position is sent to a line 
+--      adder (3S/3R/3T) which determines if sprite belongs to the next line. In
+--      that case sprite H (X) position is used to determine at which address of
+--      the sprite line buffer the sprite data have to be written.
+--
+--      Sprite line buffer (1M/3M and 1P/3P) are 4x64x9bits rams used as
+--      2 flip/flop buffer alternating every other line (odd/even) and each 
+--      buffer is used as one 64x18bits ram.
+--
+--      In fact sprite H position bits 7 to 2 are used to address sprite line 
+--      buffer and sprite H position bits 1 to 0 will be written to that buffer.
+--
+--      In the same way, since sprite are 16 lines height, bits 2 to 0 from 
+--      sprite V position have to be written to the line buffer. (lsb of sprite 
+--      lines count is made later from odd/even scanline counter and dont need
+--      to be written to line buffer).
+--
+--      Finally at a given address, line buffer is written with:
+--        - 2 least significants bits of sprite H position (2 pixels resolution)
+--        - 3 least significants bits of sprite V position (2 lines resolution)
+--        - 9 bits for sprite code (1bit shared with color)
+--        - 2 bits for sprite color
+--        - 2 bits for flip H/V attributes
+-- 
+--      Since line buffer address is only 6bits wide, corresponding to sprite H
+--      position bits 7 to 2, one can immediatly see that if sprite are closer
+--      than 4 steps position, the later written to the line buffer **may** 
+--      completly override the former ones (for the given scanline).
+--      
+--		  (*) Only data from @1 to @160 are transfered to and read back. So only
+--      159 sprites are taken into account. Anyway it's clear that working ram
+--      is used for other task at upper addresses.
+--
+--    Sprite line buffer read:
+--      After having been written during previous line, line buffer is read 
+--      under horizontal video counter control (bits 3 to 8). Read data are used
+--      to retrieve written sprite data.
+--
+--      Lsb of line counter and 3 least significants bits of V sprite position 
+--      and sprite code are used to address graphics roms (taking into account
+--      flip attributes).
+--
+--      2 least significant bits of H sprite position are used to delay sprite
+--      color bits are graphics roms output in order to retrieve correct 
+--      horizontal position. Counter at (5E) do this job by setting at the right
+--      time SO/S1 of shift registers (4K/4L/4J/5K/4F/4H/4E/5F) and  CP of
+--      register (4C).
+--
+--      Important role of sprite color (3bits) stored in line buffer:
+--      One can see that counter at (5E) may be loaded with a value of 0-3 or a 
+--      value of 8-11 depending on sprite color currently read from line buffer
+--      (DJ14/15/16 thru NAND gate (3D) on shematics).
+--
+--        - When loaded with 8 to 11 the counter (5E) will reach 15 before being
+--          (re)loaded. In that case shift registers (4K/../5F) and color register
+--          (4C) will be loaded with new data to start displaying a NEW sprite.
+--
+--        - When loaded with 0 to 3 the counter (5E) will not reach 15 before
+--          being (re)loaded. In that case shift registers (4K/../5F) and color
+--          register (4C) continue to display previously started sprite. If no
+--          new color triggers a load of counter with a value between 8 to 11,
+--          the counter is periodicaly (re)loaded to a value between 0-3 and
+--          don't reach 15. The started sprite continue to be displayed since
+--          shift regsisters are not reloaded. Sprite display 'ends' after 16
+--          pixels when shift registers outputs only '0'.
+--
+--        This also explain the role of (2D/2C)	AND gates on data input of line
+--        buffer. This allow to 'clear' the line buffer just after reading. 
+--        No color = No new sprite start.
+--
+--    So there are two sprite overlapping artefacts:
+--
+--      - line buffer address is only 6 bits => too close sprites may result in
+--        last written sprite data to be completly replaced previously written
+--        one for that scanline. This ocurs for sprites which H pos modulo 4 are
+--        equal. Since sprite H/V positions have 2pixels/2lines resolution this
+--        artefact may occur for sprites closer by less than 8 pixels.
+--          
+--      - line buffer doesn't contain sprite graphics but sprite data => sprite 
+--        graphic roms are read at the same time as being displayed on screen and
+--        since only 1 sprite can address graphics rom then only 1 sprite 
+--        graphics is displayable at a time => As soon as a new sprite start being
+--        displayed it stopped displaying previously started sprite EVEN IF THE
+--        NEW SPRITE HAS TRANSPARENT COLORS for some pixels. This artefact always
+--        occurs when sprite are closer than 16pixels but is visible only if 
+--        first sprite still has non transparent colors to be displayed when 
+--        second sprite begins.
+--
+--
+--      Examples with sprite B being written after sprite A in line buffer
+--      (ie @B > @A in working ram)
+--
+--        With H pos B = H pos A + 2 (but *NOT* at same line buffer address):
+--
+--         ________                      ________              ________
+--        |  AAAA  |    ________        |  AAAA  |__          |  AAAA  |__
+--        | AA  AA |   |        |       | AA        |         | AA  AA    |
+--        |  AAAA  |   |  BBBB  |       |  A  BBBB  |         |  AAABBBB  |
+--        | AA  AA |   | B    B | gives | AA B    B | instead | AA B    B |
+--        |  AAAA  |   | B    B |       |  A B    B |   of    |  AAB    B |
+--        |________|   |  BBBB  |       |__   BBBB  |         |__   BBBB  |
+--                     |________|          |________|            |________|
+--
+--        With H pos B = H pos A + 2 (but at same line buffer address):
+--
+--         ________                      ________              ________
+--        |  AAAA  |    ________        |  AAAA  |__          |  AAAA  |__
+--        | AA  AA |   |        |       |           |         | AA  AA    |
+--        |  AAAA  |   |  BBBB  |       |     BBBB  |         |  AAABBBB  |
+--        | AA  AA |   | B    B | gives |    B    B | instead | AA B    B |
+--        |  AAAA  |   | B    B |       |    B    B |   of    |  AAB    B |
+--        |________|   |  BBBB  |       |__   BBBB  |         |__   BBBB  |
+--                     |________|          |________|            |________|
+--
+--
+--        With H pos B = H pos A :
+--
+--         ________                      ________             ________
+--        |  AAAA  |    ________        |  AAAA  |           |  AAAA  |
+--        | AA  AA |   |        |       |        |           | AA  AA |
+--        |  AAAA  |   |  BBBB  |       |  BBBB  |           |  BBBB  |
+--        | AA  AA |   | B    B | gives | B    B |  instead  | BA  AB |
+--        |  AAAA  |   | B    B |       | B    B |    of     | BAAAAB |
+--        |________|   |  BBBB  |       |  BBBB  |           |  BBBB  |
+--                     |________|       |________|           |________|
+--
+--
+--    VHDL code reproduces original hardware and doesn't try to avoid any of 
+--    these artefacts
+--
+--    Protection device (7K/7J):
+--      Algorithm is taken from MAME source code and seems to be ok for Popeye
+--      and Sky skipper.
+--
+--    NMI hardware enable/disable is made by retriving cpu I register that is 
+--    set to cpu address bus bits 15 to 8 during refresh cycle.
+--
+---------------------------------------------------------------------------------
