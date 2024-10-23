@@ -202,6 +202,6 @@ begin
     -- gain pin is driven high there is a 6 dB gain, low is a 12 dB gain 
     O_PMODAMP2_GAIN <= sw(15);
 
-    O_PMODAMP2_AIN <= pwm_accumulator(12);
+    O_PMODAMP2_AIN <= pwm_accumulator(17);
 
 end struct;
