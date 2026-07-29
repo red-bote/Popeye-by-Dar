@@ -292,7 +292,7 @@ begin
  -- END LATCHED
  --
   
-  p_rdata                : process(busctrl_re, addr, reg)
+  p_rdata                : process(busctrl_re, addr, reg, ioa_inreg)
   begin
     O_DA <= (others => '0'); -- 'X'
     if (busctrl_re = '1') then -- not necessary, but useful for putting 'X's in the simulator
