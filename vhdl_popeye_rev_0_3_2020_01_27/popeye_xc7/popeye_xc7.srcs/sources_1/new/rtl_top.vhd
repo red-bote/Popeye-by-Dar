@@ -59,7 +59,6 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.std_logic_unsigned.all;
-use ieee.numeric_std.all;
 
 library work;
 
@@ -228,7 +227,9 @@ begin
   vga_g <= g & '0' when blankn = '1' else "0000";
   vga_b <= b & "00" when blankn = '1' else "0000";
 
+    -- synchro composite/ synchro horizontale
   vga_hs <= hsync;
+    -- commutation rapide / synchro verticale
   vga_vs <= vsync;
 
   -- get scancode from keyboard
@@ -279,8 +280,10 @@ begin
     end if;
   end process;
 
+    -- active-low shutdown pin
   O_PMODAMP2_SHUTD <= sw(14);
   O_PMODAMP2_GAIN <= sw(15);
+    -- gain pin is driven high there is a 6 dB gain, low is a 12 dB gain 
   O_PMODAMP2_AIN <= pwm_accumulator(17);
 
   led <= (others => '0');
