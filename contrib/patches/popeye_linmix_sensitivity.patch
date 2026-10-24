@@ -1,0 +1,13 @@
+# ym_2149_linmix.vhd: add ioa_inreg and iob_inreg to the p_rdata sensitivity list
+# (Synth 8-614).
+--- a/vhdl_popeye_rev_0_3_2020_01_27/rtl_mikej/ym_2149_linmix.vhd
++++ b/vhdl_popeye_rev_0_3_2020_01_27/rtl_mikej/ym_2149_linmix.vhd
+@@ -292,7 +292,7 @@
+   -- END LATCHED
+   --
+ 
+-  p_rdata                : process(busctrl_re, addr, reg)
++  p_rdata                : process(busctrl_re, addr, reg, ioa_inreg, iob_inreg)
+   begin
+     O_DA <= (others => '0'); -- 'X'
+     if (busctrl_re = '1') then -- not necessary, but useful for putting 'X's in the simulator
